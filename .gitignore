@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+dist/
+build/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# SQLite databases & temp files
+*.db
+*.db-journal
+dev.db
+dev.db-journal
+*.tmp*
+*.bak
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Prisma client generated binaries
+server/prisma/client/

@@ -1,0 +1,414 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* WARM CREAM EDITORIAL DESIGN SYSTEM (LIGHT / DEFAULT) */
+    --canvas-main: #F7F8D9;
+    --canvas-secondary: #FBFCEB;
+    --surface-primary: #FFFFFF;
+    --surface-elevated: #FFFFFF;
+    --surface-secondary: #FBFCEB;
+    --surface-hover: #EEF2C9;
+    
+    --ink-primary: #102408;
+    --ink-secondary: #26351C;
+    --ink-muted: #66705D;
+    --border-warm: #D9DEC2;
+    --border-subtle: #E6EAD0;
+
+    --olive-primary: #7F8500;
+    --olive-dark: #626900;
+    --olive-light: #9DA300;
+    
+    --lime-highlight: #EAF04B;
+    --lime-soft: #F0F5A5;
+
+    --status-success: #3F6B28;
+    --status-warning: #927000;
+    --status-error: #9A332B;
+    --status-info: #456A62;
+
+    /* Legacy mapping fallback for enterprise utilities */
+    --bg-main: var(--canvas-main);
+    --bg-surface: var(--surface-primary);
+    --bg-panel: var(--surface-primary);
+    --bg-hover: var(--surface-hover);
+    --border-color: var(--border-warm);
+    --text-primary: var(--ink-primary);
+    --text-secondary: var(--ink-secondary);
+    --text-muted: var(--ink-muted);
+    --accent: var(--olive-primary);
+  }
+
+  html.dark {
+    /* DARK PALETTE: DEEP OLIVE-INK (BRAND COHESIVE) */
+    --canvas-main: #101508;
+    --canvas-secondary: #18200F;
+    --surface-primary: #18200F;
+    --surface-elevated: #202A14;
+    --surface-secondary: #151C0B;
+    --surface-hover: #263417;
+
+    --ink-primary: #F4F6D8;
+    --ink-secondary: #D9DEC2;
+    --ink-muted: #AAB397;
+    --border-warm: #354021;
+    --border-subtle: #242D14;
+
+    --olive-primary: #B7BE24;
+    --olive-dark: #8C9300;
+    --olive-light: #D4DB4A;
+
+    --lime-highlight: #EAF04B;
+    --lime-soft: #424912;
+
+    --status-success: #70A850;
+    --status-warning: #E0AB1E;
+    --status-error: #E56358;
+    --status-info: #6E9D93;
+
+    /* Legacy mapping */
+    --bg-main: var(--canvas-main);
+    --bg-surface: var(--surface-primary);
+    --bg-panel: var(--surface-elevated);
+    --bg-hover: var(--surface-hover);
+    --border-color: var(--border-warm);
+    --text-primary: var(--ink-primary);
+    --text-secondary: var(--ink-secondary);
+    --text-muted: var(--ink-muted);
+    --accent: var(--olive-primary);
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--canvas-main);
+    color: var(--ink-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.015em;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 112, 93, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 112, 93, 0.45);
+}
+
+/* ==========================================================
+   EDITORIAL & PILL DESIGN TOKENS
+   ========================================================== */
+
+.editorial-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background-color: var(--lime-highlight);
+  color: #263000;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  line-height: 1;
+}
+
+html.dark .editorial-eyebrow {
+  background-color: var(--lime-highlight);
+  color: #101508;
+}
+
+.editorial-headline {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+  color: var(--ink-primary);
+}
+
+/* Primary Pill Button */
+.btn-pill-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 44px;
+  padding: 0 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: var(--olive-dark);
+  color: #F7F8D9;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+}
+.btn-pill-primary:hover {
+  background-color: var(--ink-primary);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+.btn-pill-primary:active {
+  transform: translateY(0);
+}
+
+/* Secondary Pill Button */
+.btn-pill-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 44px;
+  padding: 0 1.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  color: var(--ink-primary);
+  transition: all 0.18s ease;
+}
+.btn-pill-secondary:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--olive-primary);
+}
+
+/* Compact Operational Pill Buttons for dense controls */
+.btn-pill-sm {
+  height: 32px;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+}
+
+/* Flat Premium Containers */
+.panel-cream {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 16px;
+}
+
+.card-cream {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 14px;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.card-cream:hover {
+  border-color: var(--olive-primary);
+}
+
+/* Flat Forms */
+.input-warm {
+  height: 42px;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 12px;
+  padding: 0 1rem;
+  font-size: 0.825rem;
+  color: var(--ink-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-warm:focus {
+  outline: none;
+  border-color: var(--olive-primary);
+  box-shadow: 0 0 0 3px rgba(127, 133, 0, 0.15);
+}
+
+/* Tables */
+.table-editorial {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.table-editorial th {
+  background-color: var(--canvas-secondary);
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border-warm);
+  text-align: left;
+}
+.table-editorial td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-warm);
+  color: var(--ink-secondary);
+}
+.table-editorial tr:hover td {
+  background-color: var(--surface-hover);
+}
+
+/* ==========================================================
+   LEGACY COMPATIBILITY OVERRIDES
+   Maps existing classes (ent-panel, ent-card, ent-btn-primary)
+   seamlessly to the new warm cream design system
+   ========================================================== */
+
+.ent-panel {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 14px;
+}
+
+.ent-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ent-card:hover {
+  border-color: var(--olive-primary);
+}
+
+.ent-toolbar {
+  background-color: var(--canvas-secondary);
+  border: 1px solid var(--border-warm);
+  border-radius: 12px;
+}
+
+.ent-table-header {
+  background-color: var(--canvas-secondary);
+  border-bottom: 1px solid var(--border-warm);
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ent-table-row {
+  border-bottom: 1px solid var(--border-warm);
+  transition: background-color 0.12s ease;
+}
+.ent-table-row:hover {
+  background-color: var(--surface-hover);
+}
+
+.ent-input {
+  height: 38px;
+  font-size: 0.8rem;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 10px;
+  padding: 0 0.75rem;
+  color: var(--ink-primary);
+  transition: border-color 0.15s ease;
+}
+.ent-input:focus {
+  outline: none;
+  border-color: var(--olive-primary);
+  box-shadow: 0 0 0 2px rgba(127, 133, 0, 0.2);
+}
+
+.ent-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: var(--olive-dark);
+  color: #F7F8D9;
+  transition: all 0.15s ease;
+}
+.ent-btn-primary:hover {
+  background-color: var(--ink-primary);
+  color: #FFFFFF;
+}
+
+.ent-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  color: var(--ink-primary);
+  transition: all 0.15s ease;
+}
+.ent-btn-secondary:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--olive-primary);
+}
+
+/* Status Badges */
+.badge-blue {
+  background-color: var(--lime-soft);
+  color: #26351C;
+  border: 1px solid rgba(127, 133, 0, 0.35);
+  font-weight: 600;
+}
+.badge-green {
+  background-color: rgba(63, 107, 40, 0.15);
+  color: #3F6B28;
+  border: 1px solid rgba(63, 107, 40, 0.3);
+  font-weight: 600;
+}
+.badge-amber {
+  background-color: rgba(146, 112, 0, 0.15);
+  color: #927000;
+  border: 1px solid rgba(146, 112, 0, 0.3);
+  font-weight: 600;
+}
+.badge-red {
+  background-color: rgba(154, 51, 43, 0.15);
+  color: #9A332B;
+  border: 1px solid rgba(154, 51, 43, 0.3);
+  font-weight: 600;
+}
+.badge-slate {
+  background-color: var(--canvas-secondary);
+  color: var(--ink-muted);
+  border: 1px solid var(--border-warm);
+  font-weight: 600;
+}
+
+html.dark .badge-blue {
+  background-color: rgba(234, 240, 75, 0.15);
+  color: #EAF04B;
+  border-color: rgba(234, 240, 75, 0.3);
+}
+html.dark .badge-green {
+  background-color: rgba(112, 168, 80, 0.2);
+  color: #88C464;
+  border-color: rgba(112, 168, 80, 0.35);
+}
+html.dark .badge-amber {
+  background-color: rgba(224, 171, 30, 0.2);
+  color: #F0C450;
+  border-color: rgba(224, 171, 30, 0.35);
+}
+html.dark .badge-red {
+  background-color: rgba(229, 99, 88, 0.2);
+  color: #F28E85;
+  border-color: rgba(229, 99, 88, 0.35);
+}
+
+.glass-panel {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 14px;
+}
+.glass-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-warm);
+  border-radius: 12px;
+}
