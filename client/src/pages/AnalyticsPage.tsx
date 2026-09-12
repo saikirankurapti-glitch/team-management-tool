@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Download,
   AlertTriangle,
@@ -12,6 +13,10 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieC
 import { WorkItemSideDrawer } from '../components/common/WorkItemSideDrawer';
 
 export const AnalyticsPage: React.FC = () => {
+  const { key } = useParams<{ key?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [overview, setOverview] = useState<any>(null);
   const [teamAnalytics, setTeamAnalytics] = useState<any>(null);
   const [flowAnalytics, setFlowAnalytics] = useState<any>(null);
@@ -26,25 +31,48 @@ export const AnalyticsPage: React.FC = () => {
   const [selectedWorkItem, setSelectedWorkItem] = useState<WorkItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Initial load projects
+  useEffect(() => {
+    fetchApi<Project[]>('/projects')
+      .then((projData) => setProjects(projData))
+      .catch((err) => console.error(err));
+  }, []);
+
+  // Determine active project ID based on route / query params / projects
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const routeParam = key || searchParams.get('project') || searchParams.get('projectId') || searchParams.get('key');
+    let matchingProj: Project | undefined;
+
+    if (routeParam) {
+      matchingProj = projects.find((p) => p.key === routeParam || p.id === routeParam);
+    }
+
+    if (matchingProj) {
+      setSelectedProjectId(matchingProj.id);
+    } else if (!selectedProjectId && projects.length > 0 && key) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [key, searchParams, projects]);
+
   const loadData = () => {
     let query = `timeframe=${timeframe}`;
     if (selectedProjectId) query += `&projectId=${selectedProjectId}`;
 
     Promise.all([
       fetchApi<any>(`/analytics?${query}`),
-      fetchApi<any>('/analytics/team'),
-      fetchApi<any>('/analytics/flow'),
-      fetchApi<any>('/analytics/bugs'),
+      fetchApi<any>(`/analytics/team?${query}`),
+      fetchApi<any>(`/analytics/flow?${query}`),
+      fetchApi<any>(`/analytics/bugs?${query}`),
       fetchApi<any[]>('/analytics/reports'),
-      fetchApi<Project[]>('/projects'),
     ])
-      .then(([overData, teamData, flowData, bugData, repData, projData]) => {
+      .then(([overData, teamData, flowData, bugData, repData]) => {
         setOverview(overData);
         setTeamAnalytics(teamData);
         setFlowAnalytics(flowData);
         setBugAnalytics(bugData);
         setReports(repData);
-        setProjects(projData);
       })
       .catch((err) => console.error(err))
       .finally(() => setIsLoading(false));
@@ -53,6 +81,16 @@ export const AnalyticsPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [selectedProjectId, timeframe]);
+
+  const handleProjectSelect = (projId: string) => {
+    setSelectedProjectId(projId);
+    const targetProj = projects.find((p) => p.id === projId);
+    if (targetProj) {
+      navigate(`/projects/${targetProj.key}/analytics`);
+    } else {
+      navigate('/analytics');
+    }
+  };
 
   const handleExportCSV = () => {
     const token = localStorage.getItem('token');
@@ -99,7 +137,7 @@ export const AnalyticsPage: React.FC = () => {
 
           <select
             value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
+            onChange={(e) => handleProjectSelect(e.target.value)}
             className="input-warm text-xs font-semibold py-2 px-3 rounded-full cursor-pointer max-w-[200px]"
           >
             <option value="">All Projects</option>

@@ -3,14 +3,15 @@ import { X, Zap, Calendar, AlertTriangle } from 'lucide-react';
 import { fetchApi } from '../../services/api';
 import { Project, Team } from '../../types';
 
-export const CreateSprintModal: React.FC<{ onClose: () => void; onCreated?: () => void }> = ({
-  onClose,
-  onCreated,
-}) => {
+export const CreateSprintModal: React.FC<{
+  onClose: () => void;
+  onCreated?: () => void;
+  defaultProjectId?: string;
+}> = ({ onClose, onCreated, defaultProjectId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [teamId, setTeamId] = useState('');
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
@@ -23,13 +24,17 @@ export const CreateSprintModal: React.FC<{ onClose: () => void; onCreated?: () =
   useEffect(() => {
     fetchApi<Project[]>('/projects').then((data) => {
       setProjects(data);
-      if (data.length > 0) setProjectId(data[0].id);
+      if (defaultProjectId && data.some((p) => p.id === defaultProjectId)) {
+        setProjectId(defaultProjectId);
+      } else if (data.length > 0) {
+        setProjectId(data[0].id);
+      }
     });
     fetchApi<Team[]>('/teams').then((data) => {
       setTeams(data);
       if (data.length > 0) setTeamId(data[0].id);
     });
-  }, []);
+  }, [defaultProjectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

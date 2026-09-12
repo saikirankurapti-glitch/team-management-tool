@@ -1,7 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../client/prisma/client/index.js';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
 
 async function main() {
   console.log('[Seed] Cleaning existing database...');
@@ -278,7 +279,7 @@ async function main() {
       status: 'IN_PROGRESS',
       priority: 'URGENT',
       reporterId: sai.id,
-      assigneeId: ravi.id,
+      assigneeId: raj.id,
       parentId: epic1.id,
       sprintId: sprint1.id,
       storyPoints: 13,
@@ -296,8 +297,8 @@ async function main() {
       type: 'USER_STORY',
       status: 'DONE',
       priority: 'HIGH',
-      reporterId: kiran.id,
-      assigneeId: ravi.id,
+      reporterId: sai.id,
+      assigneeId: raj.id,
       parentId: feat1.id,
       sprintId: sprint1.id,
       storyPoints: 8,
@@ -315,8 +316,8 @@ async function main() {
       type: 'TASK',
       status: 'DONE',
       priority: 'HIGH',
-      reporterId: ravi.id,
-      assigneeId: ravi.id,
+      reporterId: raj.id,
+      assigneeId: raj.id,
       parentId: story1.id,
       sprintId: sprint1.id,
       storyPoints: 5,
@@ -332,8 +333,8 @@ async function main() {
       type: 'TASK',
       status: 'CODE_REVIEW',
       priority: 'MEDIUM',
-      reporterId: ravi.id,
-      assigneeId: priya.id,
+      reporterId: raj.id,
+      assigneeId: navya.id,
       parentId: story1.id,
       sprintId: sprint1.id,
       storyPoints: 5,
@@ -350,8 +351,8 @@ async function main() {
       status: 'BLOCKED',
       priority: 'URGENT',
       severity: 'CRITICAL',
-      reporterId: naveen.id,
-      assigneeId: naveen.id,
+      reporterId: navya.id,
+      assigneeId: navya.id,
       sprintId: sprint1.id,
       storyPoints: 3,
       blockedReason: 'Waiting for regex decoder fix in shared utility library.',
@@ -389,8 +390,8 @@ async function main() {
       type: 'TASK',
       status: 'IN_PROGRESS',
       priority: 'HIGH',
-      reporterId: ravi.id,
-      assigneeId: kiran.id,
+      reporterId: raj.id,
+      assigneeId: sai.id,
       storyPoints: 8,
     },
   });
@@ -407,12 +408,12 @@ async function main() {
   await prisma.workItemStatusHistory.createMany({
     data: [
       { workItemId: story1.id, oldStatus: 'CREATED', newStatus: 'TO_DO', changedById: sai.id, changedAt: pastDates[0] },
-      { workItemId: story1.id, oldStatus: 'TO_DO', newStatus: 'IN_PROGRESS', changedById: ravi.id, changedAt: pastDates[1] },
-      { workItemId: story1.id, oldStatus: 'IN_PROGRESS', newStatus: 'DONE', changedById: ravi.id, changedAt: pastDates[3] },
-      { workItemId: task1.id, oldStatus: 'CREATED', newStatus: 'IN_PROGRESS', changedById: ravi.id, changedAt: pastDates[1] },
-      { workItemId: task1.id, oldStatus: 'IN_PROGRESS', newStatus: 'DONE', changedById: ravi.id, changedAt: pastDates[2] },
-      { workItemId: task2.id, oldStatus: 'CREATED', newStatus: 'IN_PROGRESS', changedById: priya.id, changedAt: pastDates[1] },
-      { workItemId: task2.id, oldStatus: 'IN_PROGRESS', newStatus: 'CODE_REVIEW', changedById: priya.id, changedAt: pastDates[3] },
+      { workItemId: story1.id, oldStatus: 'TO_DO', newStatus: 'IN_PROGRESS', changedById: raj.id, changedAt: pastDates[1] },
+      { workItemId: story1.id, oldStatus: 'IN_PROGRESS', newStatus: 'DONE', changedById: raj.id, changedAt: pastDates[3] },
+      { workItemId: task1.id, oldStatus: 'CREATED', newStatus: 'IN_PROGRESS', changedById: raj.id, changedAt: pastDates[1] },
+      { workItemId: task1.id, oldStatus: 'IN_PROGRESS', newStatus: 'DONE', changedById: raj.id, changedAt: pastDates[2] },
+      { workItemId: task2.id, oldStatus: 'CREATED', newStatus: 'IN_PROGRESS', changedById: navya.id, changedAt: pastDates[1] },
+      { workItemId: task2.id, oldStatus: 'IN_PROGRESS', newStatus: 'CODE_REVIEW', changedById: navya.id, changedAt: pastDates[3] },
     ],
   });
 
@@ -421,8 +422,8 @@ async function main() {
   await prisma.workItemComment.createMany({
     data: [
       { workItemId: feat1.id, authorId: sai.id, content: 'API implementation looks solid. Please make sure special chars are escaped.' },
-      { workItemId: feat1.id, authorId: ravi.id, content: 'Will check validation. Adding unit test suite for auth controller today.' },
-      { workItemId: bug1.id, authorId: naveen.id, content: 'Logged bug details. Reproduction steps attached.' },
+      { workItemId: feat1.id, authorId: raj.id, content: 'Will check validation. Adding unit test suite for auth controller today.' },
+      { workItemId: bug1.id, authorId: navya.id, content: 'Logged bug details. Reproduction steps attached.' },
     ],
   });
 
@@ -565,6 +566,97 @@ async function main() {
         createdBy: 'SYSTEM_SEED',
       },
     });
+  }
+
+  // ============================================================
+  // DEVELOPMENT-ONLY: Local test account
+  // This block runs ONLY when NODE_ENV=development.
+  // The account (test@tmp.local) is never created in production.
+  // Never expose these credentials outside local development.
+  // ============================================================
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Seed] [DEV ONLY] Upserting development test account...');
+
+    const devPasswordHash = await bcrypt.hash('TmpTest@12345', 10);
+
+    const devUser = await prisma.user.upsert({
+      where: { email: 'test@tmp.local' },
+      update: {
+        // Keep password fresh on every seed run but do NOT change role/org
+        passwordHash: devPasswordHash,
+        fullName: 'Dev Test Account',
+        jobTitle: 'Development Test User',
+        department: 'Engineering',
+        role: 'TEAM_MEMBER',
+        isActive: true,
+        status: 'ONLINE',
+      },
+      create: {
+        organizationId: org.id,
+        email: 'test@tmp.local',
+        passwordHash: devPasswordHash,
+        fullName: 'Dev Test Account',
+        jobTitle: 'Development Test User',
+        department: 'Engineering',
+        role: 'TEAM_MEMBER',
+        isActive: true,
+        status: 'ONLINE',
+        avatarUrl: null,
+      },
+    });
+
+    // Add dev user to Customer Platform project (ProjectMember) — idempotent
+    await prisma.projectMember.upsert({
+      where: {
+        projectId_userId: {
+          projectId: customerProj.id,
+          userId: devUser.id,
+        },
+      },
+      update: {},
+      create: {
+        projectId: customerProj.id,
+        userId: devUser.id,
+      },
+    });
+
+    // Add dev user to #general channel — idempotent
+    await prisma.channelMember.upsert({
+      where: {
+        channelId_userId: {
+          channelId: genChannel.id,
+          userId: devUser.id,
+        },
+      },
+      update: {},
+      create: {
+        channelId: genChannel.id,
+        userId: devUser.id,
+        role: 'MEMBER',
+      },
+    });
+
+    // Add dev user to #announcements channel — idempotent
+    await prisma.channelMember.upsert({
+      where: {
+        channelId_userId: {
+          channelId: annChannel.id,
+          userId: devUser.id,
+        },
+      },
+      update: {},
+      create: {
+        channelId: annChannel.id,
+        userId: devUser.id,
+        role: 'MEMBER',
+      },
+    });
+
+    console.log('[Seed] [DEV ONLY] Development test account ready:');
+    console.log('[Seed] [DEV ONLY]   Email:    test@tmp.local');
+    console.log('[Seed] [DEV ONLY]   Password: TmpTest@12345   (LOCAL DEVELOPMENT TEST CREDENTIALS)');
+    console.log('[Seed] [DEV ONLY]   Role:     TEAM_MEMBER');
+    console.log('[Seed] [DEV ONLY] WARNING: This account must NEVER be used in production.');
   }
 
   console.log('[Seed] Database successfully seeded! Demo startup ready.');

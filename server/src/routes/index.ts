@@ -50,6 +50,8 @@ import * as googleMeetingCtrl from '../controllers/meetingController.js';
 import * as googleDriveCtrl from '../controllers/driveController.js';
 import * as planningCtrl from '../controllers/planningController.js';
 import * as allowlistCtrl from '../controllers/allowlistController.js';
+// DEVELOPMENT ONLY — never import for production use
+import * as devAuthCtrl from '../controllers/devAuthController.js';
 
 const router = Router();
 
@@ -62,6 +64,16 @@ router.post('/auth/google/callback', authCtrl.handleGoogleCallback);
 router.post('/auth/request-access', allowlistCtrl.submitAccessRequest);
 router.post('/auth/logout', authenticate, authCtrl.logout);
 router.get('/auth/me', authenticate, authCtrl.getCurrentUser);
+
+// ── DEVELOPMENT-ONLY route ─────────────────────────────────────────────────
+// This route is conditionally registered only when NODE_ENV=development.
+// The handler itself also independently guards against non-development envs.
+// This double-guard (route registration + handler guard) ensures the endpoint
+// cannot be accidentally exposed in production.
+// NEVER add this route outside of this conditional block.
+if (process.env.NODE_ENV === 'development') {
+  router.post('/auth/dev-login', devAuthCtrl.devLogin);
+}
 
 // Organization & Members
 router.get('/organization', authenticate, orgCtrl.getOrganization);
@@ -240,10 +252,13 @@ router.delete('/automations/:id', authenticate, automationCtrl.deleteAutomationR
 router.get('/digest', authenticate, digestCtrl.getDailyDigest);
 
 // AI Copilot & Natural-Language Operations
+router.get('/copilot/health', authenticate, copilotCtrl.healthCheck);
 router.post('/copilot/ask', authenticate, copilotCtrl.askCopilot);
 router.post('/ai/query', authenticate, copilotCtrl.askCopilot);
 router.get('/copilot/stream', authenticate, copilotCtrl.streamCopilot);
+router.post('/copilot/stream', authenticate, copilotCtrl.streamCopilot);
 router.post('/copilot/confirm', authenticate, copilotCtrl.confirmCopilotMutation);
+router.get('/copilot/conversations', authenticate, copilotCtrl.getAiConversations);
 router.get('/copilot/conversations/:id', authenticate, copilotCtrl.getAiConversationMessages);
 router.get('/copilot/logs', authenticate, requireRole('ADMIN'), copilotCtrl.getAiAuditLogs);
 router.get('/copilot/settings', authenticate, requireRole('ADMIN'), copilotCtrl.getAiSettings);

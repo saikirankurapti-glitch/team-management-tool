@@ -1,0 +1,1660 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Organization {
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  logoUrl     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  users       User[]
+  teams       Team[]
+  projects    Project[]
+  channels    Channel[]
+  conversations Conversation[]
+  files       FileAttachment[]
+  auditLogs   AuditLog[]
+  savedReports SavedReport[]
+  feedbacks   Feedback[]
+  integrations Integration[]
+  automationRules AutomationRule[]
+  riskObservations RiskObservation[]
+  reportSchedules ReportSchedule[]
+  aiAuditLogs AiAuditLog[]
+  aiSettings  AiSettings?
+  apiKeys     ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  subscription Subscription?
+  supportTickets CustomerSupportTicket[]
+  projectTemplates ProjectTemplate[]
+  oauthApps OAuthApp[]
+  knowledgePages KnowledgePage[]
+  decisions     DecisionRecord[]
+  meetings      MeetingRecord[]
+  projectUpdates ProjectUpdate[]
+  announcements Announcement[]
+  pushSubscriptions PushSubscription[]
+  workflows Workflow[]
+  customWorkItemTypes CustomWorkItemType[]
+  customFieldDefinitions CustomFieldDefinition[]
+  approvalRequests ApprovalRequest[]
+  organizationPolicies OrganizationPolicy[]
+  configurationVersions ConfigurationVersion[]
+  githubConnections GitHubConnection[]
+  aiConversations AIConversation[]
+  githubAppConfig GitHubAppConfig?
+  googleConnections GoogleConnection[]
+  googleAppConfig GoogleAppConfig?
+  scheduledMeetings Meeting[]
+  githubLinks   WorkItemGitHubLink[]
+  resourceAllocations ResourceAllocation[]
+  skillCatalog        SkillCatalog[]
+  userSkills          UserSkill[]
+  rateCards           RateCard[]
+  projectPricings     ProjectPricing[]
+  projectProposals    ProjectEstimateProposal[]
+  estimateScenarios   EstimateScenario[]
+  planningAudits      PlanningAudit[]
+  authAllowlists      OrganizationAuthAllowlist[]
+  accessRequests      AuthAccessRequest[]
+  securityEvents      SecurityEvent[]
+}
+
+
+model User {
+  id               String            @id @default(uuid())
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email            String            @unique
+  passwordHash     String
+  fullName         String
+  avatarUrl        String?
+  jobTitle         String?
+  department       String?
+  isActive         Boolean           @default(true)
+  role             String            @default("TEAM_MEMBER") // OWNER, ADMIN, PROJECT_MANAGER, TEAM_MEMBER, VIEWER
+  status           String            @default("OFFLINE") // ONLINE, OFFLINE, AWAY
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  teamMemberships  TeamMember[]
+  projectMemberships ProjectMember[]
+  assignedItems    WorkItem[]        @relation("AssignedWorkItems")
+  reportedItems    WorkItem[]        @relation("ReportedWorkItems")
+  ledTeams         Team[]            @relation("TeamLead")
+  ownedProjects    Project[]         @relation("ProjectOwner")
+  comments         WorkItemComment[]
+  statusChanges    WorkItemStatusHistory[]
+  messages         Message[]
+  channelMemberships ChannelMember[]
+  conversationMemberships ConversationMember[]
+  reactions        MessageReaction[]
+  notifications    Notification[]
+  notificationPreferences NotificationPreference?
+  auditLogs        AuditLog[]
+  uploadedFiles    FileAttachment[]
+  savedReports     SavedReport[]
+  feedbacks        Feedback[]
+  automationRules  AutomationRule[]
+  aiAuditLogs      AiAuditLog[]
+  apiKeys          ApiKey[]
+  sessions         UserSession[]
+  supportTickets   CustomerSupportTicket[]
+  oauthApps        OAuthApp[]
+  knowledgePages   KnowledgePage[]
+  knowledgeVersions KnowledgePageVersion[]
+  knowledgeComments KnowledgePageComment[]
+  decisions        DecisionRecord[]
+  meetings         MeetingRecord[]
+  projectUpdates   ProjectUpdate[]
+  announcements    Announcement[]
+  pushSubscriptions PushSubscription[]
+  requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
+  approvedRequests ApprovalRequest[] @relation("ApprovedRequests")
+  configurationChanges ConfigurationVersion[]
+  githubConnections GitHubConnection[]
+  aiConversations AIConversation[]
+  googleConnections GoogleConnection[]
+  createdMeetings  Meeting[]
+  ownedMilestones       Milestone[]
+  resourceAllocations   ResourceAllocation[]
+  skills                UserSkill[]
+  proposalsCreated      ProjectEstimateProposal[]
+  estimatesLogged       WorkItemEstimateHistory[]
+  authAllowlists        OrganizationAuthAllowlist[]
+
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model Team {
+  id               String        @id @default(uuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  teamLeadId       String?
+  teamLead         User?         @relation("TeamLead", fields: [teamLeadId], references: [id], onDelete: SetNull)
+  capacityHours    Int           @default(160)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  members          TeamMember[]
+  workItems        WorkItem[]
+  sprints          Sprint[]
+  channels         Channel[]
+  knowledgePages   KnowledgePage[]
+
+  @@index([organizationId])
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("MEMBER")
+  joinedAt  DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String          // e.g. PROJ, INT, CLI
+  name           String
+  description    String?
+  ownerId        String
+  owner          User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  status         String          @default("ACTIVE") // PLANNING, ACTIVE, ON_HOLD, COMPLETED, ARCHIVED
+  health         String          @default("HEALTHY") // HEALTHY, AT_RISK, CRITICAL
+  startDate      DateTime?
+  targetDate     DateTime?
+  workflowId     String?
+  workflow       Workflow?       @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  members        ProjectMember[]
+  workItems      WorkItem[]
+  sprints        Sprint[]
+  channels       Channel[]
+  files          FileAttachment[]
+  repositories   Repository[]
+  riskObservations RiskObservation[]
+  knowledgePages KnowledgePage[]
+  decisions      DecisionRecord[]
+  meetings       MeetingRecord[]
+  calendarMeetings Meeting[]
+  projectUpdates ProjectUpdate[]
+  milestones     Milestone[]
+  branchNamingPattern String?     @default("{type}/{humanId}-{slug}")
+  plannedStartDate    DateTime?
+  plannedEndDate      DateTime?
+  actualStartDate     DateTime?
+  actualEndDate       DateTime?
+  estimationMethod    String?           @default("HOURS") // STORY_POINTS, HOURS, PERSON_DAYS, THREE_POINT, HYBRID
+  resourceAllocations ResourceAllocation[]
+  pricing             ProjectPricing?
+  proposals           ProjectEstimateProposal[]
+  scenarios           EstimateScenario[]
+  planningAudits      PlanningAudit[]
+  automationRules     AutomationRule[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Sprint {
+  id              String     @id @default(uuid())
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId          String?
+  team            Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  name            String
+  goal            String?
+  startDate       DateTime
+  endDate         DateTime
+  status          String     @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  createdById     String?
+  committedPoints Int        @default(0)
+  completedPoints Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  workItems       WorkItem[]
+
+  @@index([projectId])
+}
+
+model WorkItem {
+  id                 String     @id @default(uuid())
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  humanId            String     // e.g. PROJ-101, BUG-203
+  title              String
+  description        String?
+  type               String     @default("TASK") // EPIC, FEATURE, USER_STORY, TASK, BUG, SUBTASK
+  status             String     @default("TO_DO") // BACKLOG, TO_DO, IN_PROGRESS, CODE_REVIEW, TESTING, BLOCKED, DONE
+  priority           String     @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  severity           String?    // For Bugs: CRITICAL, HIGH, MEDIUM, LOW
+  assigneeId         String?
+  assignee           User?      @relation("AssignedWorkItems", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporterId         String
+  reporter           User       @relation("ReportedWorkItems", fields: [reporterId], references: [id], onDelete: Cascade)
+  teamId             String?
+  team               Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  parentId           String?
+  parent             WorkItem?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: SetNull)
+  children           WorkItem[] @relation("ParentChild")
+  sprintId           String?
+  sprint             Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  storyPoints        Int?       @default(0)
+  estimatedHours     Float?     @default(0)
+  actualHours        Float?     @default(0)
+  optimisticHours    Float?
+  mostLikelyHours    Float?
+  pessimisticHours   Float?
+  personDays         Float?
+  remainingHours     Float?
+  startDate          DateTime?
+  dueDate            DateTime?
+  earliestStart      DateTime?
+  earliestFinish     DateTime?
+  latestStart        DateTime?
+  latestFinish       DateTime?
+  slackHours         Float?     @default(0)
+  isCritical         Boolean    @default(false)
+  blockedReason      String?
+  environment        String?    // Bug specific
+  stepsToReproduce   String?    // Bug specific
+  expectedResult     String?    // Bug specific
+  actualResult       String?    // Bug specific
+  customFieldValues  CustomFieldValue[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  comments           WorkItemComment[]
+  statusHistory      WorkItemStatusHistory[]
+  tags               WorkItemTag[]
+  blockingItems      WorkItemDependency[] @relation("BlockingWorkItem")
+  blockedByItems     WorkItemDependency[] @relation("BlockedWorkItem")
+  attachments        FileAttachment[]
+  messages           Message[]
+  pullRequests       PullRequest[]
+  meetings           Meeting[]
+  githubLinks        WorkItemGitHubLink[]
+  estimateHistory    WorkItemEstimateHistory[]
+
+  @@unique([projectId, humanId])
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([sprintId])
+}
+
+model WorkItemStatusHistory {
+  id           String   @id @default(uuid())
+  workItemId   String
+  workItem     WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  oldStatus    String
+  newStatus    String
+  changedById  String
+  changedBy    User     @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  changedAt    DateTime @default(now())
+
+  @@index([workItemId])
+  @@index([changedAt])
+}
+
+model WorkItemDependency {
+  id                 String   @id @default(uuid())
+  blockingWorkItemId String
+  blockingItem       WorkItem @relation("BlockingWorkItem", fields: [blockingWorkItemId], references: [id], onDelete: Cascade)
+  blockedWorkItemId  String
+  blockedItem        WorkItem @relation("BlockedWorkItem", fields: [blockedWorkItemId], references: [id], onDelete: Cascade)
+  type               String   @default("FINISH_TO_START") // FINISH_TO_START, START_TO_START, FINISH_TO_FINISH, START_TO_FINISH
+  lagHours           Float    @default(0)
+  createdAt          DateTime @default(now())
+
+  @@unique([blockingWorkItemId, blockedWorkItemId])
+}
+
+model WorkItemTag {
+  id         String   @id @default(uuid())
+  workItemId String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  name       String
+  color      String   @default("#6366f1")
+
+  @@unique([workItemId, name])
+}
+
+model WorkItemComment {
+  id         String   @id @default(uuid())
+  workItemId String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([workItemId])
+}
+
+model Channel {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  name           String
+  description    String?
+  type           String        @default("PUBLIC") // PUBLIC, PRIVATE, PROJECT, TEAM
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  members        ChannelMember[]
+  messages       Message[]
+
+  @@unique([organizationId, name])
+}
+
+model ChannelMember {
+  id        String   @id @default(uuid())
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("MEMBER") // OWNER, MODERATOR, MEMBER
+  joinedAt  DateTime @default(now())
+
+  @@unique([channelId, userId])
+}
+
+model Conversation {
+  id             String               @id @default(uuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String               @default("DIRECT") // DIRECT, GROUP
+  name           String?              // Group conversation name
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  members        ConversationMember[]
+  messages       Message[]
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id              String          @id @default(uuid())
+  channelId       String?
+  channel         Channel?        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  conversationId  String?
+  conversation    Conversation?   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content         String
+  messageType     String          @default("TEXT") // TEXT, FILE, IMAGE, SYSTEM, WORK_ITEM_REFERENCE
+  workItemId      String?
+  workItem        WorkItem?       @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  parentMessageId String?
+  parentMessage   Message?        @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies         Message[]       @relation("MessageReplies")
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  reactions       MessageReaction[]
+  attachments     FileAttachment[]
+
+  @@index([channelId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model UserReadState {
+  id                String    @id @default(uuid())
+  userId            String
+  channelId         String?
+  conversationId    String?
+  lastReadMessageId String?
+  lastReadAt        DateTime  @default(now())
+
+  @@unique([userId, channelId])
+  @@unique([userId, conversationId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // ASSIGNMENT, MENTION, COMMENT, STATUS_CHANGE, OVERDUE, SPRINT_ENDING
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskAssignments      Boolean  @default(true)
+  mentions             Boolean  @default(true)
+  comments             Boolean  @default(true)
+  statusChanges        Boolean  @default(true)
+  sprintNotifications  Boolean  @default(true)
+  projectNotifications Boolean  @default(true)
+  chatNotifications    Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+model FileAttachment {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId        String?
+  project          Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItemId       String?
+  workItem         WorkItem?    @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  messageId        String?
+  message          Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename         String
+  filePath         String
+  fileType         String
+  fileSize         Int
+  uploadedById     String
+  uploadedBy       User         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  driveFileId      String?
+  storageProvider  String       @default("LOCAL") // LOCAL | GOOGLE_DRIVE
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt @default(now())
+
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String
+  actor          User         @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action         String
+  entityType     String
+  entityId       String
+  details        String?      // JSON stringified details
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model SavedReport {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  filters        String       // JSON stringified filters
+  metrics        String       // JSON stringified metric selections
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  schedules      ReportSchedule[]
+
+  @@index([organizationId])
+}
+
+model Feedback {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String       // BUG | UX_ISSUE | FEATURE_REQUEST | GENERAL
+  pageUrl        String?
+  description    String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model Integration {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String       // GITHUB | GITLAB | BITBUCKET | AZURE_DEVOPS
+  name           String
+  accountName    String?
+  accessToken    String?      // Encrypted token
+  webhookSecret  String?
+  status         String       @default("CONNECTED") // CONNECTED | DISCONNECTED | ERROR
+  lastSyncAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  repositories   Repository[]
+  eventLogs      IntegrationEventLog[]
+
+  @@index([organizationId])
+}
+
+model Repository {
+  id             String       @id @default(uuid())
+  integrationId  String
+  integration    Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  name           String
+  fullName       String
+  url            String
+  defaultBranch  String       @default("main")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  pullRequests   PullRequest[]
+
+  @@index([integrationId])
+}
+
+model PullRequest {
+  id             String       @id @default(uuid())
+  repositoryId   String
+  repository     Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  workItemId     String?
+  workItem       WorkItem?    @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  number         Int
+  title          String
+  author         String
+  status         String       // OPEN | CLOSED | MERGED
+  reviewStatus   String?      // APPROVED | CHANGES_REQUESTED | PENDING
+  headBranch     String
+  baseBranch     String
+  url            String
+  mergedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([repositoryId])
+  @@index([workItemId])
+}
+
+model IntegrationEventLog {
+  id             String       @id @default(uuid())
+  integrationId  String
+  integration    Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  provider       String
+  eventType      String
+  payload        String       // JSON stringified payload
+  status         String       // SUCCESS | FAILED
+  error          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([integrationId])
+}
+
+model AutomationRule {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  trigger        String          // normalized trigger key (e.g., GITHUB_PR_OPENED, WORK_ITEM_STATUS_CHANGED, etc.)
+  conditions     String          // JSON stringified safe conditions AST
+  actions        String          // JSON stringified safe actions list
+  isEnabled      Boolean         @default(true)
+  executionCount Int             @default(0)
+  failureCount   Int             @default(0)
+  lastExecutedAt DateTime?
+  throttleMinutes Int            @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  logs           AutomationLog[]
+
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+model AutomationLog {
+  id                String         @id @default(uuid())
+  automationRuleId  String
+  automationRule    AutomationRule @relation(fields: [automationRuleId], references: [id], onDelete: Cascade)
+  organizationId    String?
+  projectId         String?
+  eventId           String?        // Idempotency tracking / webhook delivery ID / correlation ID
+  source            String?        // WORK_ITEM | GITHUB_WEBHOOK | SPRINT | CAPACITY | CALENDAR
+  actorId           String?
+  triggerEvent      String
+  matchedConditions Boolean        @default(true)
+  actionsExecuted   String         // JSON stringified actions details
+  status            String         // SUCCESS | FAILED | THROTTLED | SKIPPED_LOOP | SKIPPED_CONDITION
+  errorCode         String?
+  error             String?
+  durationMs        Int            @default(0)
+  startedAt         DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+
+  @@index([automationRuleId])
+  @@index([eventId])
+  @@index([organizationId])
+}
+
+model RiskObservation {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  severity       String       // LOW | MEDIUM | HIGH | CRITICAL
+  sourceMetric   String       // OVERDUE | BLOCKED | CYCLE_TIME | CAPACITY | SCOPE_CREEP
+  title          String
+  reason         String
+  status         String       @default("ACTIVE") // ACTIVE | RESOLVED
+  detectedAt     DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  @@index([organizationId])
+}
+
+model ReportSchedule {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  savedReportId  String
+  savedReport    SavedReport  @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+  frequency      String       // DAILY | WEEKLY | MONTHLY
+  recipients     String       // JSON stringified recipient user IDs
+  isActive       Boolean      @default(true)
+  lastSentAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model AiAuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt         String
+  toolInvoked    String?
+  parameters     String?      // JSON stringified params
+  response       String
+  status         String       @default("SUCCESS") // SUCCESS | DENIED | FAILED
+  durationMs     Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model AiSettings {
+  id                  String       @id @default(uuid())
+  organizationId      String       @unique
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  isEnabled           Boolean      @default(true)
+  provider            String       @default("MOCK_OPENAI") // OPENAI | MOCK_OPENAI
+  model               String       @default("gpt-4o")
+  monthlyUsageLimit   Int          @default(10000)
+  currentUsage        Int          @default(0)
+  enableMutations     Boolean      @default(true)
+  enableSummaries     Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model ApiKey {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  name           String
+  keyHash        String       @unique
+  keyPrefix      String
+  scopes         String       // JSON stringified scopes
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  status         String       @default("ACTIVE") // ACTIVE | REVOKED
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model WebhookEndpoint {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  url            String
+  secret         String
+  events         String       // JSON stringified event list
+  status         String       @default("ACTIVE") // ACTIVE | DISABLED
+  createdAt      DateTime     @default(now())
+  deliveries     WebhookDeliveryLog[]
+
+  @@index([organizationId])
+}
+
+model WebhookDeliveryLog {
+  id                String          @id @default(uuid())
+  webhookEndpointId String
+  webhookEndpoint   WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+  event             String
+  payload           String          // JSON payload
+  httpStatus        Int
+  durationMs        Int
+  status            String          // DELIVERED | FAILED
+  attemptCount      Int             @default(1)
+  createdAt         DateTime        @default(now())
+
+  @@index([webhookEndpointId])
+}
+
+model UserSession {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress  String?
+  userAgent  String?
+  isValid    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Subscription {
+  id               String       @id @default(uuid())
+  organizationId   String       @unique
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan             String       @default("TEAM") // FREE | TEAM | BUSINESS | ENTERPRISE
+  status           String       @default("TRIALING") // TRIALING | ACTIVE | PAST_DUE | CANCELED | EXPIRED
+  maxMembers       Int          @default(25)
+  maxProjects      Int          @default(20)
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model CustomerSupportTicket {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  category       String       // TECHNICAL | BILLING | SECURITY | ACCOUNT | FEATURE_REQUEST
+  subject        String
+  description    String
+  status         String       @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model ProjectTemplate {
+  id             String       @id @default(uuid())
+  organizationId String?      // Null if global public template
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  category       String       // SOFTWARE | PRODUCT | MARKETING | OPERATIONS | CLIENT
+  description    String?
+  version        String       @default("1.0.0")
+  config         String       // JSON stringified workflow, work item types, tags, automations
+  isPublic       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model OAuthApp {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById      String
+  createdBy        User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  name             String
+  clientId         String       @unique
+  clientSecretHash String
+  redirectUri      String
+  scopes           String       // JSON stringified scopes
+  status           String       @default("ACTIVE") // ACTIVE | REVOKED
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model KnowledgePage {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title          String
+  content        String
+  category       String       @default("GENERAL")
+  visibility     String       @default("ORGANIZATION") // ORGANIZATION | TEAM | PROJECT | PRIVATE
+  version        Int          @default(1)
+  isStale        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  versions       KnowledgePageVersion[]
+  comments       KnowledgePageComment[]
+
+  @@index([organizationId])
+}
+
+model KnowledgePageVersion {
+  id              String        @id @default(uuid())
+  knowledgePageId String
+  knowledgePage   KnowledgePage @relation(fields: [knowledgePageId], references: [id], onDelete: Cascade)
+  version         Int
+  title           String
+  content         String
+  editedById      String
+  editedBy        User          @relation(fields: [editedById], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@index([knowledgePageId])
+}
+
+model KnowledgePageComment {
+  id              String        @id @default(uuid())
+  knowledgePageId String
+  knowledgePage   KnowledgePage @relation(fields: [knowledgePageId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content         String
+  isResolved      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  @@index([knowledgePageId])
+}
+
+model DecisionRecord {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title          String
+  context        String
+  decision       String
+  reason         String?
+  alternatives   String?
+  status         String       @default("ACCEPTED") // PROPOSED | ACCEPTED | REJECTED | SUPERSEDED
+  supersededById String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model MeetingRecord {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizerId    String
+  organizer      User         @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  title          String
+  meetingType    String       @default("STANDUP") // STANDUP | SPRINT_PLANNING | RETROSPECTIVE | GENERAL
+  agenda         String?
+  notes          String?
+  actionItems    String?      // JSON stringified action items
+  heldAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model ProjectUpdate {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title          String
+  healthStatus   String       @default("ON_TRACK") // ON_TRACK | AT_RISK | CRITICAL
+  summary        String
+  completedItems String?
+  nextSteps      String?
+  risks          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model Announcement {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title          String
+  message        String
+  audience       String       @default("ORGANIZATION") // ORGANIZATION | TEAM | PROJECT
+  isPinned       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model Milestone {
+  id             String       @id @default(uuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  targetDate     DateTime
+  plannedDate    DateTime?
+  actualDate     DateTime?
+  status         String       @default("UPCOMING") // UPCOMING | IN_PROGRESS | COMPLETED | AT_RISK | DELAYED
+  ownerId        String?
+  owner          User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+
+  @@index([projectId])
+  @@index([ownerId])
+}
+
+model PushSubscription {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint       String       @unique
+  p256dh         String
+  auth           String
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([userId])
+}
+
+model Workflow {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  statuses       WorkflowStatus[]
+  transitions    WorkflowTransition[]
+  projects       Project[]
+
+  @@index([organizationId])
+}
+
+model WorkflowStatus {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  name        String
+  category    String   // BACKLOG | UNSTARTED | IN_PROGRESS | COMPLETED | ARCHIVED
+  color       String   @default("#6366f1")
+  order       Int      @default(0)
+  wipLimit    Int?
+  createdAt   DateTime @default(now())
+
+  @@index([workflowId])
+}
+
+model WorkflowTransition {
+  id             String   @id @default(uuid())
+  workflowId     String
+  workflow       Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStatus     String
+  toStatus       String
+  allowedRoles   String?  // JSON stringified allowed roles
+  requiredFields String? // JSON stringified required field keys
+  createdAt      DateTime @default(now())
+
+  @@index([workflowId])
+}
+
+model CustomWorkItemType {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  icon           String       @default("CheckSquare")
+  description    String?
+  color          String       @default("#8b5cf6")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model CustomFieldDefinition {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  fieldKey       String
+  fieldType      String       // TEXT | NUMBER | BOOLEAN | DATE | SINGLE_SELECT | MULTI_SELECT | USER
+  options        String?      // JSON stringified dropdown options
+  isRequired     Boolean      @default(false)
+  scope          String       @default("GLOBAL")
+  createdAt      DateTime     @default(now())
+  values         CustomFieldValue[]
+
+  @@index([organizationId])
+}
+
+model CustomFieldValue {
+  id            String                @id @default(uuid())
+  fieldId       String
+  field         CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  workItemId    String
+  workItem      WorkItem              @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  value         String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([workItemId])
+  @@index([fieldId])
+}
+
+model ApprovalRequest {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requesterId    String
+  requester      User         @relation("RequestedApprovals", fields: [requesterId], references: [id], onDelete: Cascade)
+  approverId     String?
+  approver       User?        @relation("ApprovedRequests", fields: [approverId], references: [id], onDelete: SetNull)
+  title          String
+  entityType     String
+  entityId       String
+  status         String       @default("PENDING") // PENDING | APPROVED | REJECTED
+  comment        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model OrganizationPolicy {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       String       // SECURITY | WORKFLOW | COLLABORATION | INTEGRATION | AI
+  policyKey      String
+  value          String       // JSON stringified policy configuration
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, policyKey])
+}
+
+model ConfigurationVersion {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  configType     String       // WORKFLOW | CUSTOM_FIELDS | POLICY | AUTOMATION
+  version        Int
+  changedById    String
+  changedBy      User         @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  snapshot       String       // JSON stringified snapshot
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model BackgroundJob {
+  id             String   @id @default(uuid())
+  organizationId String
+  jobType        String   // NOTIFICATION | WEBHOOK | AUTOMATION | ANALYTICS | SEARCH_INDEX | AI_TASK
+  payload        String   // JSON stringified payload
+  status         String   @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED | DEAD_LETTER
+  attempts       Int      @default(0)
+  maxAttempts    Int      @default(5)
+  lastError      String?
+  scheduledAt    DateTime @default(now())
+  processedAt    DateTime?
+  completedAt    DateTime?
+  durationMs     Int?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([status, scheduledAt])
+  @@index([jobType])
+}
+
+model GitHubConnection {
+  id                    String       @id @default(uuid())
+  userId                String
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  githubUserId          String
+  githubLogin           String
+  accessTokenEncrypted  String
+  scope                 String       @default("repo,user")
+  status                String       @default("CONNECTED") // CONNECTED, REAUTH_REQUIRED, REVOKED, ERROR, DISCONNECTED
+  lastValidatedAt       DateTime     @default(now())
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@unique([userId, githubUserId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model AIConversation {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String?
+  contextPage    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  messages       AIMessage[]
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         String         // user | copilot
+  content        String
+  toolCalls      String?        // JSON stringified tool calls
+  toolResults    String?        // JSON stringified tool results
+  sources        String?        // JSON stringified sources
+  proposal       String?        // JSON stringified proposal draft
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+model GitHubAppConfig {
+  id                    String       @id @default(uuid())
+  organizationId        String       @unique
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId              String
+  encryptedClientSecret String
+  encryptedWebhookSecret String?
+  callbackUrl           String?
+  isEnabled             Boolean      @default(true)
+  createdById           String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model GoogleAppConfig {
+  id                    String       @id @default(uuid())
+  organizationId        String       @unique
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId              String
+  encryptedClientSecret String
+  redirectUri           String?
+  isEnabled             Boolean      @default(true)
+  createdById           String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model GoogleConnection {
+  id                    String       @id @default(uuid())
+  userId                String
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  googleEmail           String
+  googleUserId          String?
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  tokenExpiry           DateTime?
+  scope                 String
+  status                String       @default("CONNECTED") // CONNECTED, REAUTH_REQUIRED, REVOKED, DISCONNECTED
+  lastValidatedAt       DateTime     @default(now())
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  meetings              Meeting[]
+
+  @@unique([userId, googleEmail])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Meeting {
+  id                         String            @id @default(uuid())
+  organizationId             String
+  organization               Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById                String
+  createdBy                  User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  googleConnectionId         String?
+  googleConnection           GoogleConnection? @relation(fields: [googleConnectionId], references: [id], onDelete: SetNull)
+  projectId                  String?
+  project                    Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workItemId                 String?
+  workItem                   WorkItem?         @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  chatChannelId              String?
+  chatMessageId              String?
+  googleCalendarId           String?           @default("primary")
+  googleEventId              String?           @unique
+  googleEventUrl             String?
+  title                      String
+  description                String?
+  startTime                  DateTime
+  endTime                    DateTime
+  timeZone                   String            @default("UTC")
+  meetLink                   String?
+  hangoutLink                String?
+  googleMeetConferenceId     String?
+  googleMeetConferenceStatus String?           @default("pending")
+  organizerEmail             String?
+  location                   String?
+  attendees                  String            // JSON stringified array of emails/attendees
+  status                     String            @default("CONFIRMED") // CONFIRMED | CANCELLED
+  syncStatus                 String            @default("SYNCED") // SYNCED | PENDING_SYNC | FAILED
+  cancelledAt                DateTime?
+  lastSyncedAt               DateTime?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  activities                 MeetingActivity[]
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([googleEventId])
+  @@index([projectId])
+  @@index([workItemId])
+}
+
+model MeetingActivity {
+  id          String   @id @default(uuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  actorId     String?
+  action      String   // CREATED, MEET_GENERATED, INVITATIONS_SENT, UPDATED, RESCHEDULED, ATTENDEE_CHANGED, CANCELLED, SYNCED
+  description String
+  details     String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([createdAt])
+}
+
+model WorkItemGitHubLink {
+  id                 String       @id @default(uuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workItemId         String
+  workItem           WorkItem     @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  githubConnectionId String?
+  repositoryId       String?
+  repositoryFullName String       // e.g. "owner/repo"
+  repositoryUrl      String?
+  branchName         String?
+  commitSha          String?
+  commitMessage      String?
+  pullRequestNumber  Int?
+  pullRequestTitle   String?
+  pullRequestUrl     String?
+  relationshipType   String       // BRANCH | COMMIT | PULL_REQUEST
+  createdById        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([workItemId])
+  @@index([repositoryFullName])
+  @@index([branchName])
+  @@index([pullRequestNumber])
+}
+
+model WorkItemEstimateHistory {
+  id             String       @id @default(uuid())
+  workItemId     String
+  workItem       WorkItem     @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  previousValue  Float?
+  newValue       Float
+  unit           String       // HOURS, STORY_POINTS, PERSON_DAYS, THREE_POINT
+  method         String       // STORY_POINTS, HOURS, PERSON_DAYS, THREE_POINT, HYBRID
+  reason         String?
+  estimatedById  String
+  estimatedBy    User         @relation(fields: [estimatedById], references: [id], onDelete: Cascade)
+  estimatedAt    DateTime     @default(now())
+
+  @@index([workItemId])
+  @@index([estimatedById])
+  @@index([estimatedAt])
+}
+
+model ResourceAllocation {
+  id                   String       @id @default(uuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId            String
+  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                 String?
+  skill                String?
+  allocationPercentage Float        @default(100) // e.g. 50%
+  allocatedHours       Float        @default(0)
+  costRate             Float?       // Sensitive internal hourly cost rate
+  billingRate          Float?       // Commercial hourly billing rate
+  startDate            DateTime
+  endDate              DateTime
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([startDate, endDate])
+}
+
+model SkillCatalog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  category       String       @default("ENGINEERING") // ENGINEERING, DATA, QA, DEVOPS, DESIGN, MANAGEMENT
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model UserSkill {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillName      String
+  proficiency    String       @default("INTERMEDIATE") // BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
+  yearsExperience Float?      @default(1)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, skillName])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model RateCard {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  isDefault      Boolean        @default(false)
+  currency       String         @default("INR")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  items          RateCardItem[]
+
+  @@index([organizationId])
+}
+
+model RateCardItem {
+  id          String   @id @default(uuid())
+  rateCardId  String
+  rateCard    RateCard @relation(fields: [rateCardId], references: [id], onDelete: Cascade)
+  role        String   // e.g. Data Engineer, Backend Engineer, QA Engineer, Architect, Project Manager
+  seniority   String?  // JUNIOR, MID, SENIOR, LEAD, PRINCIPAL
+  costRate    Float    // Sensitive internal cost rate
+  billingRate Float    // Commercial billing rate
+  rateType    String   @default("HOURLY") // HOURLY, DAILY, MONTHLY
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([rateCardId])
+}
+
+model ProjectPricing {
+  id                      String       @id @default(uuid())
+  projectId               String       @unique
+  project                 Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId          String
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pricingModel            String       @default("FIXED_PRICE") // FIXED_PRICE, TIME_AND_MATERIAL, MILESTONE_BASED, RETAINER, HYBRID
+  estimatedInternalCost   Float        @default(0)
+  contingencyPercentage   Float        @default(10)
+  markupPercentage        Float        @default(25)
+  discountPercentage      Float        @default(0)
+  taxPercentage           Float        @default(18)
+  grossPrice              Float        @default(0)
+  subtotal                Float        @default(0)
+  taxAmount               Float        @default(0)
+  finalPrice              Float        @default(0)
+  currency                String       @default("INR")
+  notes                   String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+model ProjectEstimateProposal {
+  id                  String       @id @default(uuid())
+  projectId           String
+  project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version             Int          @default(1)
+  estimateNumber      String       // e.g. EST-PROJ-V1
+  status              String       @default("DRAFT") // DRAFT, INTERNAL_REVIEW, APPROVED, SENT, ACCEPTED, REJECTED, EXPIRED
+  createdById         String
+  createdBy           User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  validUntil          DateTime?
+  currency            String       @default("INR")
+  scopeSummary        String?
+  assumptions         String?
+  exclusions          String?
+  confidenceScore     String       @default("MEDIUM") // HIGH, MEDIUM, LOW
+  totalHours          Float        @default(0)
+  totalCost           Float        @default(0)
+  proposedPrice       Float        @default(0)
+  targetMarginPercent Float        @default(0)
+  notes               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([createdById])
+}
+
+model EstimateScenario {
+  id             String       @id @default(uuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       // e.g. "Scenario A: +1 Backend Engineer", "Scenario B: Scope Reduction"
+  description    String?
+  isApplied      Boolean      @default(false)
+  scenarioData   String       // JSON encoded scenario parameters and simulated outputs
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+model PlanningAudit {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId         String
+  action         String       // RESOURCE_ALLOCATED, RESOURCE_REALLOCATED, RESOURCE_REMOVED, ESTIMATE_CREATED, ESTIMATE_UPDATED, ESTIMATE_APPROVED, RATE_CARD_UPDATED, PRICING_UPDATED, SCENARIO_CREATED, SCENARIO_APPLIED, CAPACITY_OVERRIDE, TIMELINE_CHANGED, MILESTONE_CHANGED
+  entityType     String
+  entityId       String
+  oldValue       String?
+  newValue       String?
+  reason         String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model OrganizationAuthAllowlist {
+  id                  String       @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider            String       // GOOGLE, GITHUB
+  email               String
+  normalizedEmail     String
+  externalIdentityId  String?      // Google sub or GitHub user ID (immutable)
+  userId              String?      // Link to User model
+  user                User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status              String       @default("ACTIVE") // ACTIVE, SUSPENDED, REVOKED, PENDING
+  displayName         String?
+  createdBy           String?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  lastLoginUserAgent  String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([organizationId, provider, normalizedEmail])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([provider, externalIdentityId])
+  @@index([status])
+}
+
+model AuthAccessRequest {
+  id                  String       @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider            String       // GOOGLE, GITHUB
+  email               String
+  normalizedEmail     String?
+  externalIdentityId  String?      // Google sub ID or GitHub user ID (immutable)
+  name                String?
+  displayName         String?
+  givenName           String?
+  familyName          String?
+  profileImageUrl     String?
+  status              String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  ip                  String?
+  userAgent           String?
+  attemptCount        Int          @default(1)
+  lastSeenAt          DateTime?
+  rejectionReason     String?
+  mappedUserId        String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([email])
+  @@index([normalizedEmail])
+  @@index([provider, externalIdentityId])
+}
+
+model SecurityEvent {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventType       String       // UNAUTHORIZED_LOGIN_ATTEMPT, UNAUTHORIZED_GITHUB_CONNECTION_ATTEMPT, BLOCKED_SUSPENDED_LOGIN, etc.
+  provider        String       // GOOGLE, GITHUB, LOCAL
+  email           String?
+  ip              String?
+  userAgent       String?
+  details         String?      // JSON payload
+  status          String       @default("BLOCKED") // BLOCKED, RECORDED
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+

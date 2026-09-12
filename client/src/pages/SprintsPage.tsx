@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Zap,
   Calendar,
@@ -18,7 +19,11 @@ import { WorkItemSideDrawer } from '../components/common/WorkItemSideDrawer';
 import { useAuth } from '../context/AuthContext';
 
 export const SprintsPage: React.FC = () => {
+  const { key } = useParams<{ key?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
+
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -37,31 +42,79 @@ export const SprintsPage: React.FC = () => {
 
   const isManager = user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER';
 
+  // Initial load projects
+  useEffect(() => {
+    fetchApi<Project[]>('/projects')
+      .then((projData) => setProjects(projData))
+      .catch((err) => console.error(err));
+  }, []);
+
+  // Determine active project ID based on route / query params / projects
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const routeParam = key || searchParams.get('project') || searchParams.get('projectId') || searchParams.get('key');
+    let matchingProj: Project | undefined;
+
+    if (routeParam) {
+      matchingProj = projects.find((p) => p.key === routeParam || p.id === routeParam);
+    }
+
+    if (matchingProj) {
+      setSelectedProjectId(matchingProj.id);
+    } else if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [key, searchParams, projects]);
+
   const loadData = () => {
+    if (!selectedProjectId) return;
+    setIsLoading(true);
+
+    const sprintQuery = `/sprints?projectId=${selectedProjectId}`;
+    const backlogQuery = `/work-items?projectId=${selectedProjectId}&sprintId=unassigned`;
+    const velocityQuery = `/sprints/velocity?projectId=${selectedProjectId}`;
+
     Promise.all([
-      fetchApi<Sprint[]>('/sprints'),
-      fetchApi<Project[]>('/projects'),
-      fetchApi<WorkItem[]>('/work-items?sprintId=unassigned'),
-      fetchApi<any>('/sprints/velocity'),
+      fetchApi<Sprint[]>(sprintQuery),
+      fetchApi<WorkItem[]>(backlogQuery),
+      fetchApi<any>(velocityQuery),
     ])
-      .then(([sprintData, projData, unassignedItems, velData]) => {
+      .then(([sprintData, unassignedItems, velData]) => {
         setSprints(sprintData);
-        setProjects(projData);
         setBacklogItems(unassignedItems);
         setVelocity(velData);
 
-        if (sprintData.length > 0 && !selectedSprintId) {
+        if (sprintData.length > 0) {
           const active = sprintData.find((s) => s.status === 'ACTIVE') || sprintData[0];
           setSelectedSprintId(active.id);
+        } else {
+          setSelectedSprintId('');
+          setMetrics(null);
+          setCapacity([]);
         }
       })
       .catch((err) => console.error(err))
       .finally(() => setIsLoading(false));
   };
 
+  // Load project-scoped sprints, backlog, and velocity
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedProjectId]);
+
+  const handleProjectSelect = (projId: string) => {
+    setSelectedProjectId(projId);
+    setSelectedSprintId('');
+    setMetrics(null);
+    setCapacity([]);
+    const targetProj = projects.find((p) => p.id === projId);
+    if (targetProj) {
+      navigate(`/projects/${targetProj.key}/sprints`);
+    } else {
+      navigate('/sprints');
+    }
+  };
 
   useEffect(() => {
     if (selectedSprintId) {
@@ -103,6 +156,7 @@ export const SprintsPage: React.FC = () => {
   }
 
   const activeSprint = sprints.find((s) => s.id === selectedSprintId);
+  const selectedProj = projects.find((p) => p.id === selectedProjectId);
 
   return (
     <div className="p-5 space-y-4 overflow-y-auto h-full text-xs">
@@ -111,6 +165,9 @@ export const SprintsPage: React.FC = () => {
         <div className="flex items-center space-x-2">
           <Zap className="w-4 h-4 text-amber-500" />
           <div>
+            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+              PROJECTS / {selectedProj ? `${selectedProj.name} (${selectedProj.key})` : 'ALL PROJECTS'} / SPRINTS
+            </div>
             <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Sprint Execution & Burndown
             </h1>
@@ -123,8 +180,8 @@ export const SprintsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="ent-input text-xs"
+            onChange={(e) => handleProjectSelect(e.target.value)}
+            className="ent-input text-xs font-bold"
           >
             <option value="">All Projects</option>
             {projects.map((p) => (
@@ -412,7 +469,13 @@ export const SprintsPage: React.FC = () => {
         </div>
       )}
 
-      {isCreateOpen && <CreateSprintModal onClose={() => setIsCreateOpen(false)} onCreated={loadData} />}
+      {isCreateOpen && (
+        <CreateSprintModal
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={loadData}
+          defaultProjectId={selectedProjectId}
+        />
+      )}
       {completingSprint && (
         <SprintCompletionModal
           sprint={completingSprint}

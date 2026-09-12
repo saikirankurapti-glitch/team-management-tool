@@ -112,7 +112,7 @@ export const ProjectDetailPage: React.FC = () => {
 
         <div className="flex items-center space-x-2">
           <Link
-            to={`/boards?project=${project.id}`}
+            to={`/projects/${project.key}/board`}
             className="btn-pill-primary px-3.5 py-1.5 font-bold flex items-center space-x-1.5 shadow-xs"
           >
             <Kanban className="w-3.5 h-3.5" />

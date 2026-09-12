@@ -123,10 +123,12 @@ export const startSprint = async (req: AuthRequest, res: Response) => {
 
     const existing = await prisma.sprint.findUnique({
       where: { id },
-      include: { workItems: true },
+      include: { project: { select: { id: true, organizationId: true } }, workItems: true },
     });
 
-    if (!existing) return res.status(404).json({ message: 'Sprint not found' });
+    if (!existing || existing.project.organizationId !== orgId) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
 
     const totalCommittedPoints = existing.workItems.reduce((acc, item) => acc + (item.storyPoints || 0), 0);
 
@@ -183,10 +185,12 @@ export const completeSprint = async (req: AuthRequest, res: Response) => {
 
     const sprint = await prisma.sprint.findUnique({
       where: { id },
-      include: { workItems: true },
+      include: { project: { select: { id: true, organizationId: true } }, workItems: true },
     });
 
-    if (!sprint) return res.status(404).json({ message: 'Sprint not found' });
+    if (!sprint || sprint.project.organizationId !== orgId) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
 
     const completedItems = sprint.workItems.filter((item) => item.status === 'DONE');
     const unfinishedItems = sprint.workItems.filter((item) => item.status !== 'DONE');
@@ -265,9 +269,11 @@ export const completeSprint = async (req: AuthRequest, res: Response) => {
 export const getSprintCapacity = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const orgId = req.user?.organizationId;
     const sprint = await prisma.sprint.findUnique({
       where: { id },
       include: {
+        project: { select: { id: true, organizationId: true } },
         workItems: {
           select: {
             id: true,
@@ -283,7 +289,9 @@ export const getSprintCapacity = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!sprint) return res.status(404).json({ message: 'Sprint not found' });
+    if (!sprint || sprint.project.organizationId !== orgId) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
 
     // Fetch all users in organization to calculate capacity
     const users = await prisma.user.findMany({
@@ -365,9 +373,11 @@ export const getTeamVelocity = async (req: AuthRequest, res: Response) => {
 export const getSprintMetrics = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const orgId = req.user?.organizationId;
     const sprint = await prisma.sprint.findUnique({
       where: { id },
       include: {
+        project: { select: { id: true, organizationId: true } },
         workItems: {
           include: {
             statusHistory: true,
@@ -376,7 +386,9 @@ export const getSprintMetrics = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!sprint) return res.status(404).json({ message: 'Sprint not found' });
+    if (!sprint || sprint.project.organizationId !== orgId) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
 
     const totalPoints = sprint.workItems.reduce((sum, item) => sum + (item.storyPoints || 0), 0);
     const completedItems = sprint.workItems.filter((item) => item.status === 'DONE');

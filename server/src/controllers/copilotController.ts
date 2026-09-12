@@ -1,62 +1,118 @@
 import { Response } from 'express';
 import { prisma } from '../prisma.js';
 import { AuthRequest } from '../middleware/auth.js';
-import { processCopilotQuery } from '../services/aiGateway.js';
+import { processCopilotQueryStream } from '../services/aiGateway.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-export const askCopilot = async (req: AuthRequest, res: Response) => {
-  try {
-    const orgId = req.user?.organizationId;
-    const userId = req.user?.id;
-    const { prompt, contextPage, conversationId } = req.body;
+export const healthCheck = async (req: AuthRequest, res: Response) => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+  const provider = process.env.AI_PROVIDER || 'gemini';
+  const modelName = process.env.AI_MODEL || 'gemini-3.5-flash-lite';
 
-    if (!orgId || !userId) return res.status(401).json({ message: 'Unauthorized' });
-    if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+  const isConfigured = !!apiKey && apiKey !== 'YOUR_GEMINI_API_KEY';
 
-    const result = await processCopilotQuery(
-      { prompt, contextPage, conversationId },
-      { userId, organizationId: orgId, userRole: req.user?.role }
-    );
-    return res.json({
-      ...result,
-      reply: result.response,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+  const diagnostics = {
+    provider: provider,
+    model: modelName,
+    apiKeyConfigured: isConfigured,
+    providerReachable: false,
+    message: 'Gemini AI is not configured.'
+  };
+
+  if (isConfigured) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await model.generateContent({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }] });
+        diagnostics.providerReachable = true;
+        diagnostics.message = 'Successfully connected to Gemini provider.';
+        break;
+      } catch (err: any) {
+        diagnostics.providerReachable = false;
+        diagnostics.message = `Provider connection failed: ${err.message}`;
+        if (attempt < 3 && (err.message?.includes('503') || err.message?.includes('429'))) {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+        }
+      }
+    }
   }
+
+  return res.json(diagnostics);
 };
 
 export const streamCopilot = async (req: AuthRequest, res: Response) => {
   const orgId = req.user?.organizationId;
   const userId = req.user?.id;
-  const prompt = req.query.prompt as string;
+  // Handle both GET and POST
+  const prompt = req.method === 'POST' ? req.body.prompt : req.query.prompt as string;
+  const contextPage = req.method === 'POST' ? req.body.contextPage : undefined;
+  const conversationId = req.method === 'POST' ? req.body.conversationId : undefined;
 
-  if (!orgId || !userId || !prompt) {
-    return res.status(400).send('Prompt and authentication required');
-  }
+  if (!orgId || !userId) return res.status(401).json({ message: 'Unauthorized' });
+  if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
-  const sendStep = (step: string, data?: any) => {
-    res.write(`data: ${JSON.stringify({ step, data })}\n\n`);
+  const sendEvent = (event: any) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
   try {
-    sendStep('Thinking', { prompt });
-    await new Promise((r) => setTimeout(r, 200));
+    const generator = processCopilotQueryStream(
+      { prompt, contextPage, conversationId },
+      { userId, organizationId: orgId, userRole: req.user?.role }
+    );
 
-    sendStep('Querying DB', { organizationId: orgId });
-    await new Promise((r) => setTimeout(r, 300));
-
-    sendStep('Executing Tools', { prompt });
-    const result = await processCopilotQuery({ prompt }, { userId, organizationId: orgId, userRole: req.user?.role });
-
-    sendStep('Done', result);
+    for await (const event of generator) {
+      sendEvent(event);
+      if (event.type === 'error') {
+        res.end();
+        return;
+      }
+    }
     res.end();
   } catch (err: any) {
-    sendStep('Error', { message: err.message });
+    sendEvent({ type: 'error', message: err.message });
     res.end();
+  }
+};
+
+// Deprecated block endpoint for tests that still use it
+export const askCopilot = async (req: AuthRequest, res: Response) => {
+  const orgId = req.user?.organizationId;
+  const userId = req.user?.id;
+  const { prompt, contextPage, conversationId } = req.body;
+
+  if (!orgId || !userId) return res.status(401).json({ message: 'Unauthorized' });
+  if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+
+  try {
+    const generator = processCopilotQueryStream(
+      { prompt, contextPage, conversationId },
+      { userId, organizationId: orgId, userRole: req.user?.role }
+    );
+
+    let fullText = '';
+    let finalEvent: any = {};
+
+    for await (const event of generator) {
+      if (event.type === 'text') fullText += event.content;
+      if (event.type === 'proposal') finalEvent.proposal = event.content;
+      if (event.type === 'sources') finalEvent.sources = event.content;
+      if (event.type === 'done') finalEvent.conversationId = event.conversationId;
+      if (event.type === 'error') throw new Error(event.message);
+    }
+
+    return res.json({
+      response: fullText,
+      ...finalEvent,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -249,8 +305,8 @@ export const getAiSettings = async (req: AuthRequest, res: Response) => {
         data: {
           organizationId: orgId,
           isEnabled: true,
-          provider: process.env.AI_PROVIDER || 'OPENAI',
-          model: process.env.AI_MODEL || 'gpt-4o',
+          provider: process.env.AI_PROVIDER || 'gemini',
+          model: process.env.AI_MODEL || 'gemini-3.5-flash-lite',
           monthlyUsageLimit: 10000,
           currentUsage: 0,
         },

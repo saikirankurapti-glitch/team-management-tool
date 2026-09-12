@@ -35,3 +35,14 @@ Thumbs.db
 
 # Prisma client generated binaries
 server/prisma/client/
+client/prisma/client/
+
+# Temporary extracted stitch design folders
+client/stich design/extracted_*/
+client/stich design/stitch_enterprise_saas_homepage_redesign*.zip
+
+# Scratch debug files
+server/diagnostics.js
+server/scratch_debug_empty_text.ts
+
+

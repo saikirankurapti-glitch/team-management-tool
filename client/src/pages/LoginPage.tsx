@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, ShieldCheck, Zap, Users, AlertCircle } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Users, AlertCircle, FlaskConical } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { fetchApi } from '../services/api';
+
+// DEV_MODE is a compile-time constant injected by Vite.
+// import.meta.env.DEV is TRUE only when running `npm run dev` (NODE_ENV=development).
+// In a production build (`npm run build`), this evaluates to FALSE and the entire
+// Development Login section is tree-shaken out — it does NOT exist in production.
+const IS_DEV = import.meta.env.DEV;
+
+// LOCAL DEVELOPMENT TEST CREDENTIALS — never use in production
+const DEV_EMAIL = 'test@tmp.local';
+const DEV_PASSWORD = 'TmpTest@12345';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+
+  // Primary login form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -12,18 +23,21 @@ export const LoginPage: React.FC = () => {
   const [isGitHubRedirecting, setIsGitHubRedirecting] = useState(false);
   const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false);
 
+  // Development-only login state
+  const [devError, setDevError] = useState('');
+  const [isDevSubmitting, setIsDevSubmitting] = useState(false);
+
   const handleGitHubLogin = async () => {
     setError('');
     setIsGitHubRedirecting(true);
 
     try {
-      const res = await fetchApi<{ success: boolean; url: string; error?: any }>('/auth/github/url');
-      if (res.success && res.url) {
-        window.location.href = res.url;
+      const res = await fetch('/api/auth/github/url');
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.location.href = data.url;
       } else {
-        setError(
-          res.error?.message || 'GitHub sign-in is temporarily unavailable. Please contact your administrator.'
-        );
+        setError(data.error?.message || 'GitHub sign-in is temporarily unavailable. Please contact your administrator.');
         setIsGitHubRedirecting(false);
       }
     } catch (err: any) {
@@ -37,13 +51,12 @@ export const LoginPage: React.FC = () => {
     setIsGoogleRedirecting(true);
 
     try {
-      const res = await fetchApi<{ success: boolean; url: string; error?: any }>('/auth/google/url');
-      if (res.success && res.url) {
-        window.location.href = res.url;
+      const res = await fetch('/api/auth/google/url');
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.location.href = data.url;
       } else {
-        setError(
-          res.error?.message || 'Google sign-in is temporarily unavailable. Please contact your administrator.'
-        );
+        setError(data.error?.message || 'Google sign-in is temporarily unavailable. Please contact your administrator.');
         setIsGoogleRedirecting(false);
       }
     } catch (err: any) {
@@ -56,7 +69,6 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-
     try {
       await login(email, password);
     } catch (err: any) {
@@ -66,9 +78,30 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  /**
+   * Development-only sign-in handler.
+   * Uses the standard AuthContext login() which calls /api/auth/login —
+   * the dev user is a real DB user with a properly hashed password.
+   * This function only executes from UI code that is gated on IS_DEV,
+   * so it will never be callable in a production build.
+   */
+  const handleDevLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDevError('');
+    setIsDevSubmitting(true);
+    try {
+      await login(DEV_EMAIL, DEV_PASSWORD);
+    } catch (err: any) {
+      setDevError(err.message || 'Development login failed. Have you run the seed script?');
+    } finally {
+      setIsDevSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-canvas text-ink flex items-center justify-center p-6 select-none font-sans">
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+
         {/* Left Editorial Branding */}
         <div className="space-y-6">
           <div className="flex items-center space-x-3">
@@ -93,15 +126,15 @@ export const LoginPage: React.FC = () => {
           <div className="space-y-3 pt-2 font-mono text-xs text-ink/80">
             <div className="flex items-center space-x-2.5">
               <ShieldCheck className="w-4 h-4 text-olive" />
-              <span>Multi-Tenant & Role-Based Access Isolation</span>
+              <span>Multi-Tenant &amp; Role-Based Access Isolation</span>
             </div>
             <div className="flex items-center space-x-2.5">
               <Zap className="w-4 h-4 text-olive" />
-              <span>Real-Time GitHub & DevOps Telemetry Sync</span>
+              <span>Real-Time GitHub &amp; DevOps Telemetry Sync</span>
             </div>
             <div className="flex items-center space-x-2.5">
               <Users className="w-4 h-4 text-olive" />
-              <span>Workforce Telemetry & Capacity Allocation</span>
+              <span>Workforce Telemetry &amp; Capacity Allocation</span>
             </div>
           </div>
         </div>
@@ -123,8 +156,9 @@ export const LoginPage: React.FC = () => {
 
           {/* Primary Social OAuth Buttons */}
           <div className="space-y-3">
-            {/* Continue with GitHub Button */}
+            {/* Continue with GitHub */}
             <button
+              id="github-login-btn"
               type="button"
               onClick={handleGitHubLogin}
               disabled={isGitHubRedirecting || isGoogleRedirecting}
@@ -136,8 +170,9 @@ export const LoginPage: React.FC = () => {
               <span>{isGitHubRedirecting ? 'Redirecting to GitHub...' : 'Continue with GitHub'}</span>
             </button>
 
-            {/* Continue with Google Button */}
+            {/* Continue with Google */}
             <button
+              id="google-login-btn"
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGitHubRedirecting || isGoogleRedirecting}
@@ -159,11 +194,12 @@ export const LoginPage: React.FC = () => {
             <span className="w-full border-t border-borderWarm" />
           </div>
 
-          {/* Standard Credentials Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Standard Email + Password Form */}
+          <form id="password-login-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="editorial-eyebrow text-[9px] block mb-1">Email Address</label>
+              <label htmlFor="login-email" className="editorial-eyebrow text-[9px] block mb-1">Email Address</label>
               <input
+                id="login-email"
                 type="email"
                 required
                 value={email}
@@ -174,8 +210,9 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="editorial-eyebrow text-[9px] block mb-1">Password</label>
+              <label htmlFor="login-password" className="editorial-eyebrow text-[9px] block mb-1">Password</label>
               <input
+                id="login-password"
                 type="password"
                 required
                 value={password}
@@ -186,6 +223,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <button
+              id="password-login-submit"
               type="submit"
               disabled={isSubmitting}
               className="btn-pill-primary w-full flex items-center justify-center space-x-1.5 py-3 shadow-md active:scale-[0.99] text-xs"
@@ -194,6 +232,100 @@ export const LoginPage: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
+
+          {/* ── DEVELOPMENT-ONLY: Development Login Section ─────────────────────────
+               Gated on import.meta.env.DEV (Vite compile-time constant).
+               • In development (npm run dev): IS_DEV = true → section renders.
+               • In production (npm run build): IS_DEV = false → section is
+                 tree-shaken out entirely. It does NOT exist in the production bundle.
+               This section uses the SAME /api/auth/login route as the main form —
+               no special backend route is needed.
+          ─────────────────────────────────────────────────────────────────────── */}
+          {IS_DEV && (
+            <div
+              id="dev-login-section"
+              className="mt-2 rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-50/60 dark:bg-amber-900/10 p-4 space-y-3"
+              role="region"
+              aria-label="Development Login Section"
+            >
+              {/* Header */}
+              <div className="flex items-center space-x-2">
+                <FlaskConical className="w-4 h-4 text-amber-600 shrink-0" />
+                <div>
+                  <div className="text-[9px] font-mono font-bold tracking-widest text-amber-600 uppercase">
+                    [ DEV ONLY ]
+                  </div>
+                  <div className="text-xs font-black text-amber-800 dark:text-amber-300 tracking-tight">
+                    Development Login
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-mono leading-relaxed">
+                Local development test account — bypasses Google/GitHub OAuth.{' '}
+                <span className="font-bold">Never available in production.</span>
+              </p>
+
+              {devError && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-700 text-[10px] flex items-start space-x-2 font-mono">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" />
+                  <span>{devError}</span>
+                </div>
+              )}
+
+              {/* Dev credentials form — read-only fields for visibility */}
+              <form id="dev-login-form" onSubmit={handleDevLogin} className="space-y-2.5">
+                <div>
+                  <label
+                    htmlFor="dev-email"
+                    className="text-[9px] font-mono font-bold tracking-widest text-amber-700 uppercase block mb-1"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="dev-email"
+                    type="email"
+                    readOnly
+                    value={DEV_EMAIL}
+                    className="w-full text-[11px] font-mono bg-amber-100/70 dark:bg-amber-900/30 border border-amber-300/60 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 cursor-default select-all"
+                    aria-label="Development test email address"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="dev-password"
+                    className="text-[9px] font-mono font-bold tracking-widest text-amber-700 uppercase block mb-1"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="dev-password"
+                    type="text"
+                    readOnly
+                    value={DEV_PASSWORD}
+                    className="w-full text-[11px] font-mono bg-amber-100/70 dark:bg-amber-900/30 border border-amber-300/60 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 cursor-default select-all"
+                    aria-label="Development test password"
+                  />
+                </div>
+
+                <button
+                  id="dev-login-btn"
+                  type="submit"
+                  disabled={isDevSubmitting}
+                  className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-all shadow-sm active:scale-[0.98]"
+                  aria-label="Sign in with development test account"
+                >
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span>{isDevSubmitting ? 'Signing in...' : 'Sign In (Dev)'}</span>
+                </button>
+              </form>
+
+              <p className="text-[9px] font-mono text-amber-600/60 text-center">
+                LOCAL DEVELOPMENT TEST CREDENTIALS · DO NOT USE IN PRODUCTION
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

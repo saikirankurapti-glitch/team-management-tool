@@ -83,13 +83,20 @@ const ProtectedLayout: React.FC = () => {
                 <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden pb-14 md:pb-0 bg-canvas">
                   <Header />
                   <Breadcrumbs />
-                  <main className="flex-1 overflow-hidden bg-canvas relative">
+                  <main className="flex-1 overflow-y-auto bg-canvas relative">
                     <ErrorBoundary>
                       <Routes>
                         <Route path="/" element={<HomeDashboard />} />
                         <Route path="/my-work" element={<MyWorkPage />} />
                         <Route path="/projects" element={<ProjectsPage />} />
                         <Route path="/projects/:key" element={<ProjectDetailPage />} />
+                        <Route path="/projects/:key/overview" element={<ProjectDetailPage />} />
+                        <Route path="/projects/:key/board" element={<KanbanBoardPage />} />
+                        <Route path="/projects/:key/backlog" element={<BacklogPage />} />
+                        <Route path="/projects/:key/sprints" element={<SprintsPage />} />
+                        <Route path="/projects/:key/analytics" element={<AnalyticsPage />} />
+                        <Route path="/projects/:key/chat" element={<ChatPage />} />
+                        <Route path="/projects/:key/files" element={<FilesPage />} />
                         <Route path="/boards" element={<KanbanBoardPage />} />
                         <Route path="/backlogs" element={<BacklogPage />} />
                         <Route path="/sprints" element={<SprintsPage />} />

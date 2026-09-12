@@ -78,6 +78,13 @@ initSocketServer(httpServer, CLIENT_ORIGIN);
 if (process.env.NODE_ENV !== 'test') {
   httpServer.listen(PORT, () => {
     console.log(`[Server] Startup Team Platform running on http://localhost:${PORT}`);
+    const aiProvider = process.env.AI_PROVIDER || 'gemini';
+    const aiModel = process.env.AI_MODEL || 'gemini-3.5-flash-lite';
+    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+    const apiKeyStatus = apiKey && apiKey !== 'YOUR_GEMINI_API_KEY' ? 'configured' : 'missing';
+    console.log(`[AI Diagnostics] AI Provider: ${aiProvider}`);
+    console.log(`[AI Diagnostics] AI Model: ${aiModel}`);
+    console.log(`[AI Diagnostics] Gemini API Key: ${apiKeyStatus}`);
   });
 }
 

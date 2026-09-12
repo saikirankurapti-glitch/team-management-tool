@@ -158,6 +158,10 @@ export const getTeamAnalytics = async (req: AuthRequest, res: Response) => {
     const orgId = req.user?.organizationId;
     if (!orgId) return res.status(401).json({ message: 'Unauthorized' });
 
+    const { projectId } = req.query;
+    const whereWorkItem: any = { project: { organizationId: orgId } };
+    if (projectId) whereWorkItem.projectId = String(projectId);
+
     const users = await prisma.user.findMany({
       where: { organizationId: orgId },
       select: { id: true, fullName: true, avatarUrl: true, role: true },
@@ -169,7 +173,7 @@ export const getTeamAnalytics = async (req: AuthRequest, res: Response) => {
     });
 
     const workItems = await prisma.workItem.findMany({
-      where: { project: { organizationId: orgId } },
+      where: whereWorkItem,
     });
 
     // Calculate Cross-Project Workload Matrix
@@ -217,8 +221,12 @@ export const getFlowAnalytics = async (req: AuthRequest, res: Response) => {
     const orgId = req.user?.organizationId;
     if (!orgId) return res.status(401).json({ message: 'Unauthorized' });
 
+    const { projectId } = req.query;
+    const whereWorkItem: any = { project: { organizationId: orgId } };
+    if (projectId) whereWorkItem.projectId = String(projectId);
+
     const workItems = await prisma.workItem.findMany({
-      where: { project: { organizationId: orgId } },
+      where: whereWorkItem,
       include: {
         assignee: { select: { fullName: true } },
       },
@@ -272,11 +280,15 @@ export const getBugAnalytics = async (req: AuthRequest, res: Response) => {
     const orgId = req.user?.organizationId;
     if (!orgId) return res.status(401).json({ message: 'Unauthorized' });
 
+    const { projectId } = req.query;
+    const whereBug: any = {
+      project: { organizationId: orgId },
+      type: 'BUG',
+    };
+    if (projectId) whereBug.projectId = String(projectId);
+
     const bugs = await prisma.workItem.findMany({
-      where: {
-        project: { organizationId: orgId },
-        type: 'BUG',
-      },
+      where: whereBug,
       include: {
         statusHistory: true,
       },

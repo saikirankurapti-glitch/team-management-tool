@@ -256,28 +256,44 @@ export const Sidebar: React.FC = () => {
                       <div className="pl-4 space-y-0.5 border-l border-borderWarm ml-3 my-0.5">
                         <NavLink
                           to={`/projects/${proj.key}`}
-                          className="flex items-center space-x-2 px-2 py-1 text-[11px] text-ink-secondary hover:text-ink hover:bg-surface-hover rounded"
+                          className={({ isActive }) =>
+                            `flex items-center space-x-2 px-2 py-1 text-[11px] rounded transition-colors ${
+                              isActive ? 'bg-lime/30 text-ink font-bold' : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
+                            }`
+                          }
                         >
                           <LayoutGrid className="w-3 h-3 text-olive-dark" />
                           <span>Overview</span>
                         </NavLink>
                         <NavLink
-                          to={`/boards?project=${proj.id}`}
-                          className="flex items-center space-x-2 px-2 py-1 text-[11px] text-ink-secondary hover:text-ink hover:bg-surface-hover rounded"
+                          to={`/projects/${proj.key}/board`}
+                          className={({ isActive }) =>
+                            `flex items-center space-x-2 px-2 py-1 text-[11px] rounded transition-colors ${
+                              isActive ? 'bg-lime/30 text-ink font-bold' : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
+                            }`
+                          }
                         >
                           <Kanban className="w-3 h-3 text-olive-dark" />
                           <span>Board</span>
                         </NavLink>
                         <NavLink
-                          to={`/backlogs?project=${proj.id}`}
-                          className="flex items-center space-x-2 px-2 py-1 text-[11px] text-ink-secondary hover:text-ink hover:bg-surface-hover rounded"
+                          to={`/projects/${proj.key}/backlog`}
+                          className={({ isActive }) =>
+                            `flex items-center space-x-2 px-2 py-1 text-[11px] rounded transition-colors ${
+                              isActive ? 'bg-lime/30 text-ink font-bold' : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
+                            }`
+                          }
                         >
                           <ListOrdered className="w-3 h-3 text-olive-dark" />
                           <span>Backlog</span>
                         </NavLink>
                         <NavLink
-                          to={`/sprints?project=${proj.id}`}
-                          className="flex items-center space-x-2 px-2 py-1 text-[11px] text-ink-secondary hover:text-ink hover:bg-surface-hover rounded"
+                          to={`/projects/${proj.key}/sprints`}
+                          className={({ isActive }) =>
+                            `flex items-center space-x-2 px-2 py-1 text-[11px] rounded transition-colors ${
+                              isActive ? 'bg-lime/30 text-ink font-bold' : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
+                            }`
+                          }
                         >
                           <Zap className="w-3 h-3 text-olive-dark" />
                           <span>Sprints</span>

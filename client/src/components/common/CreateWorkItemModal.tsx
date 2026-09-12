@@ -3,14 +3,15 @@ import { X, CheckCircle2 } from 'lucide-react';
 import { fetchApi } from '../../services/api';
 import { Project, User, WorkItemType, WorkItemPriority, BugSeverity } from '../../types';
 
-export const CreateWorkItemModal: React.FC<{ onClose: () => void; onCreated?: () => void }> = ({
-  onClose,
-  onCreated,
-}) => {
+export const CreateWorkItemModal: React.FC<{
+  onClose: () => void;
+  onCreated?: () => void;
+  defaultProjectId?: string;
+}> = ({ onClose, onCreated, defaultProjectId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [members, setMembers] = useState<User[]>([]);
 
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>(defaultProjectId || '');
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [type, setType] = useState<WorkItemType>('TASK');
@@ -25,10 +26,14 @@ export const CreateWorkItemModal: React.FC<{ onClose: () => void; onCreated?: ()
   useEffect(() => {
     fetchApi<Project[]>('/projects').then((data) => {
       setProjects(data);
-      if (data.length > 0) setProjectId(data[0].id);
+      if (defaultProjectId && data.some((p) => p.id === defaultProjectId)) {
+        setProjectId(defaultProjectId);
+      } else if (data.length > 0) {
+        setProjectId(data[0].id);
+      }
     });
     fetchApi<User[]>('/organization/members').then((data) => setMembers(data));
-  }, []);
+  }, [defaultProjectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

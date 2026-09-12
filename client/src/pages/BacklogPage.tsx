@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ListOrdered,
   Plus,
@@ -10,6 +11,10 @@ import { WorkItemSideDrawer } from '../components/common/WorkItemSideDrawer';
 import { CreateWorkItemModal } from '../components/common/CreateWorkItemModal';
 
 export const BacklogPage: React.FC = () => {
+  const { key } = useParams<{ key?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -18,24 +23,79 @@ export const BacklogPage: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Initial load projects
+  useEffect(() => {
+    fetchApi<Project[]>('/projects')
+      .then((projData) => setProjects(projData))
+      .catch((err) => console.error(err));
+  }, []);
+
+  // Determine active project ID based on route / query params / projects
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const routeParam = key || searchParams.get('project') || searchParams.get('projectId') || searchParams.get('key');
+    let matchingProj: Project | undefined;
+
+    if (routeParam) {
+      matchingProj = projects.find((p) => p.key === routeParam || p.id === routeParam);
+    }
+
+    if (matchingProj) {
+      setSelectedProjectId(matchingProj.id);
+    } else if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [key, searchParams, projects]);
+
   const loadData = () => {
+    setIsLoading(true);
+    const itemQuery = selectedProjectId ? `/work-items?projectId=${selectedProjectId}` : '/work-items';
+    const sprintQuery = selectedProjectId ? `/sprints?projectId=${selectedProjectId}` : '/sprints';
+
     Promise.all([
-      fetchApi<WorkItem[]>('/work-items'),
-      fetchApi<Project[]>('/projects'),
-      fetchApi<Sprint[]>('/sprints'),
+      fetchApi<WorkItem[]>(itemQuery),
+      fetchApi<Sprint[]>(sprintQuery),
     ])
-      .then(([itemData, projData, sprintData]) => {
+      .then(([itemData, sprintData]) => {
         setWorkItems(itemData);
-        setProjects(projData);
         setSprints(sprintData);
       })
       .catch((err) => console.error(err))
       .finally(() => setIsLoading(false));
   };
 
+  // Load project-scoped work items and sprints
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedProjectId]);
+
+  const handleProjectSelect = (projId: string) => {
+    setSelectedProjectId(projId);
+    const targetProj = projects.find((p) => p.id === projId);
+    if (targetProj) {
+      navigate(`/projects/${targetProj.key}/backlog`);
+    } else {
+      navigate('/backlogs');
+    }
+  };
+
+  const currentProject = projects.find(p => p.id === selectedProjectId);
+
+  const reloadProjectData = () => {
+    if (selectedProjectId) {
+      setIsLoading(true);
+      Promise.all([
+        fetchApi<WorkItem[]>(`/work-items?projectId=${selectedProjectId}`),
+        fetchApi<Sprint[]>(`/sprints?projectId=${selectedProjectId}`),
+      ])
+        .then(([itemData, sprintData]) => {
+          setWorkItems(itemData);
+          setSprints(sprintData);
+        })
+        .finally(() => setIsLoading(false));
+    }
+  };
 
   const handleSprintAssign = async (itemId: string, sprintId: string) => {
     try {
@@ -43,7 +103,7 @@ export const BacklogPage: React.FC = () => {
         method: 'PATCH',
         body: JSON.stringify({ sprintId: sprintId || null }),
       });
-      loadData();
+      reloadProjectData();
     } catch (err) {
       console.error('Failed to assign sprint', err);
     }
@@ -62,11 +122,19 @@ export const BacklogPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-borderWarm pb-4 gap-3">
         <div className="space-y-1">
-          <div className="editorial-eyebrow text-[9px]">
-            BACKLOG
+          <div className="editorial-eyebrow text-[9px] flex items-center space-x-1">
+            <span>PROJECTS</span>
+            {currentProject && (
+              <>
+                <span>/</span>
+                <span className="font-bold text-olive-dark">{currentProject.name} ({currentProject.key})</span>
+              </>
+            )}
+            <span>/</span>
+            <span>BACKLOG</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-ink tracking-tight">
-            Delivery Backlog
+            {currentProject ? `${currentProject.name} Backlog` : 'Delivery Backlog'}
           </h1>
           <p className="text-sm text-ink-muted">
             Epics, features, user stories, and sprint assignments
@@ -76,7 +144,7 @@ export const BacklogPage: React.FC = () => {
         <div className="flex items-center space-x-2">
           <select
             value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
+            onChange={(e) => handleProjectSelect(e.target.value)}
             className="input-warm h-9 text-xs"
           >
             <option value="">All Projects</option>
@@ -222,7 +290,11 @@ export const BacklogPage: React.FC = () => {
         <WorkItemSideDrawer item={selectedItem} onClose={() => setSelectedItem(null)} onUpdated={loadData} />
       )}
       {isCreateOpen && (
-        <CreateWorkItemModal onClose={() => setIsCreateOpen(false)} onCreated={loadData} />
+        <CreateWorkItemModal
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={loadData}
+          defaultProjectId={selectedProjectId}
+        />
       )}
     </div>
   );

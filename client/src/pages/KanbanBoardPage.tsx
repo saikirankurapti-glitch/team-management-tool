@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
   Search,
@@ -23,7 +24,11 @@ const COLUMNS: { id: WorkItemStatus; label: string; wipLimit?: number }[] = [
 ];
 
 export const KanbanBoardPage: React.FC = () => {
+  const { key } = useParams<{ key?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { socket } = useSocket();
+
   const [items, setItems] = useState<WorkItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [members, setMembers] = useState<User[]>([]);
@@ -35,24 +40,60 @@ export const KanbanBoardPage: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const loadData = () => {
+  // Initial load projects and members
+  useEffect(() => {
     Promise.all([
-      fetchApi<WorkItem[]>('/work-items'),
       fetchApi<Project[]>('/projects'),
       fetchApi<User[]>('/organization/members'),
     ])
-      .then(([itemData, projData, memberData]) => {
-        setItems(itemData);
+      .then(([projData, memberData]) => {
         setProjects(projData);
         setMembers(memberData);
       })
+      .catch((err) => console.error(err));
+  }, []);
+
+  // Determine active project ID based on route / query params / project list
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const routeParam = key || searchParams.get('project') || searchParams.get('projectId') || searchParams.get('key');
+    let matchingProj: Project | undefined;
+
+    if (routeParam) {
+      matchingProj = projects.find((p) => p.key === routeParam || p.id === routeParam);
+    }
+
+    if (matchingProj) {
+      setSelectedProjectId(matchingProj.id);
+    } else if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [key, searchParams, projects]);
+
+  const loadData = () => {
+    setIsLoading(true);
+    const query = selectedProjectId ? `/work-items?projectId=${selectedProjectId}` : '/work-items';
+    fetchApi<WorkItem[]>(query)
+      .then((data) => setItems(data))
       .catch((err) => console.error(err))
       .finally(() => setIsLoading(false));
   };
 
+  // Load project-scoped work items whenever selectedProjectId changes
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedProjectId]);
+
+  const handleProjectSelect = (projId: string) => {
+    setSelectedProjectId(projId);
+    const targetProj = projects.find((p) => p.id === projId);
+    if (targetProj) {
+      navigate(`/projects/${targetProj.key}/board`);
+    } else {
+      navigate('/boards');
+    }
+  };
 
   useEffect(() => {
     if (socket) {
@@ -100,7 +141,10 @@ export const KanbanBoardPage: React.FC = () => {
       });
     } catch (err) {
       console.error('Failed to update Kanban status', err);
-      loadData();
+      // Refresh project items
+      if (selectedProjectId) {
+        fetchApi<WorkItem[]>(`/work-items?projectId=${selectedProjectId}`).then((data) => setItems(data));
+      }
     }
   };
 
@@ -108,16 +152,26 @@ export const KanbanBoardPage: React.FC = () => {
     return <div className="p-8 text-xs font-mono text-ink-muted">Loading Kanban board...</div>;
   }
 
+  const currentProject = projects.find(p => p.id === selectedProjectId);
+
   return (
     <div className="flex flex-col h-full overflow-hidden p-6 space-y-4 text-xs bg-canvas select-none">
       {/* Header & Filter Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-borderWarm pb-3 gap-3 shrink-0">
         <div className="space-y-1">
-          <div className="editorial-eyebrow text-[9px]">
-            BOARD
+          <div className="editorial-eyebrow text-[9px] flex items-center space-x-1">
+            <span>PROJECTS</span>
+            {currentProject && (
+              <>
+                <span>/</span>
+                <span className="font-bold text-olive-dark">{currentProject.name} ({currentProject.key})</span>
+              </>
+            )}
+            <span>/</span>
+            <span>BOARD</span>
           </div>
           <h1 className="text-xl font-black text-ink tracking-tight">
-            Delivery Flow
+            {currentProject ? `${currentProject.name} Board` : 'Delivery Flow'}
           </h1>
         </div>
 
@@ -125,7 +179,7 @@ export const KanbanBoardPage: React.FC = () => {
           {/* Project Filter */}
           <select
             value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
+            onChange={(e) => handleProjectSelect(e.target.value)}
             className="input-warm h-9 text-xs"
           >
             <option value="">All Projects</option>
@@ -278,7 +332,11 @@ export const KanbanBoardPage: React.FC = () => {
         <WorkItemSideDrawer item={selectedItem} onClose={() => setSelectedItem(null)} onUpdated={loadData} />
       )}
       {isCreateOpen && (
-        <CreateWorkItemModal onClose={() => setIsCreateOpen(false)} onCreated={loadData} />
+        <CreateWorkItemModal
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={loadData}
+          defaultProjectId={selectedProjectId}
+        />
       )}
     </div>
   );
